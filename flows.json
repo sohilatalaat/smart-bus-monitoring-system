@@ -1,0 +1,376 @@
+[
+    {
+        "id": "738edf5cf71ab6b3",
+        "type": "tab",
+        "label": "Smart Bus System",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "1a31d3d30ec54fdd",
+        "type": "mqtt in",
+        "z": "738edf5cf71ab6b3",
+        "name": "smartbus/+/data",
+        "topic": "smartbus/+/data",
+        "qos": "0",
+        "datatype": "auto",
+        "broker": "hivemq_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 220,
+        "wires": [
+            [
+                "6b0d9023fac99beb"
+            ]
+        ]
+    },
+    {
+        "id": "4dd9ef076368de32",
+        "type": "inject",
+        "z": "738edf5cf71ab6b3",
+        "name": "1s tick",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "1",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "1",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 360,
+        "wires": [
+            [
+                "f175151db855cbc9"
+            ]
+        ]
+    },
+    {
+        "id": "6b0d9023fac99beb",
+        "type": "function",
+        "z": "738edf5cf71ab6b3",
+        "name": "store bus state",
+        "func": "var p = msg.payload;\n\nif (typeof p === 'string') {\n    try { p = JSON.parse(p); } catch (e) { node.warn('bad json'); return null; }\n}\nif (!p || !p.bus_id) { return null; }\n\nvar buses = flow.get('buses') || {};\n\nvar available = Number(p.available || 0);\nvar occupied = Number(p.occupied || 0);\nvar total = Number(p.total || (available + occupied));\nvar percent = total > 0 ? Math.round(occupied * 100 / total) : 0;\n\nbuses[p.bus_id] = {\n    bus_id: p.bus_id,\n    bus_num: Number(p.bus_num || 0),\n    status: String(p.status || 'Unknown'),\n    station: Number(p.station || 0),\n    eta: Number(p.eta || 0),\n    leave_in: Number(p.leave_in || 0),\n    available: available,\n    occupied: occupied,\n    total: total,\n    percent: percent,\n    t: Date.now()\n};\n\nflow.set('buses', buses);\n\nmsg.payload = buses[p.bus_id];\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 340,
+        "y": 220,
+        "wires": [
+            [
+                "34234309b559061f"
+            ]
+        ]
+    },
+    {
+        "id": "34234309b559061f",
+        "type": "function",
+        "z": "738edf5cf71ab6b3",
+        "name": "chart feed",
+        "func": "return {\n    topic: msg.payload.bus_id,\n    payload: msg.payload.percent\n};",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 560,
+        "y": 220,
+        "wires": [
+            [
+                "662a4c9845eb6ab7"
+            ]
+        ]
+    },
+    {
+        "id": "f175151db855cbc9",
+        "type": "function",
+        "z": "738edf5cf71ab6b3",
+        "name": "render dashboard",
+        "func": "var buses = flow.get('buses') || {};\nvar now = Date.now();\nvar list = [];\n\nObject.keys(buses).forEach(function (k) {\n    var s = buses[k];\n    var age = Math.floor((now - s.t) / 1000);\n\n    var b = {\n        bus_id: s.bus_id,\n        bus_num: s.bus_num,\n        status: s.status,\n        station: s.station,\n        available: s.available,\n        occupied: s.occupied,\n        total: s.total,\n        percent: s.percent,\n        count: 0\n    };\n\n    if (age > 20) {\n        b.status = 'Offline';\n        b.count = 0;\n    } else if (s.status === 'Arrived') {\n        b.count = Math.max(0, s.leave_in - age);\n    } else {\n        b.count = Math.max(0, s.eta - age);\n    }\n\n    b.color = b.status === 'Arrived' ? '#2e9e4f' : (b.status === 'Offline' ? '#8a8a8a' : '#2a6ebb');\n    b.loadColor = b.percent > 80 ? '#ca3838' : (b.percent > 50 ? '#e6a700' : '#00b050');\n    b.label = b.status === 'Arrived' ? 'DEPARTING IN' : 'ARRIVING IN';\n\n    list.push(b);\n});\n\nlist.sort(function (a, b) { return a.bus_num - b.bus_num; });\n\nvar stations = [];\nfor (var s = 1; s <= 3; s++) {\n    var at = null;\n    var nxt = null;\n\n    list.forEach(function (b) {\n        if (b.station !== s || b.status === 'Offline') { return; }\n        if (b.status === 'Arrived') { at = b; }\n        if (b.status === 'Moving') {\n            if (nxt === null || b.count < nxt.count) { nxt = b; }\n        }\n    });\n\n    stations.push({ station: s, at: at, next: nxt });\n}\n\nfunction find(num) {\n    var found = null;\n    list.forEach(function (b) { if (b.bus_num === num) { found = b; } });\n    return found;\n}\n\nreturn [\n    { payload: list },\n    { payload: stations },\n    { payload: find(1) },\n    { payload: find(2) },\n    { payload: find(3) }\n];",
+        "outputs": 5,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 360,
+        "wires": [
+            [
+                "4396f8850c97e0d9"
+            ],
+            [
+                "341bbd5bb709447d"
+            ],
+            [
+                "3f8b0bfd47f618a4"
+            ],
+            [
+                "349d0365764d3a7d"
+            ],
+            [
+                "9a77c2f88cdc68b9"
+            ]
+        ]
+    },
+    {
+        "id": "4396f8850c97e0d9",
+        "type": "ui_template",
+        "z": "738edf5cf71ab6b3",
+        "group": "40b1f3b75b2c0820",
+        "name": "fleet table",
+        "order": 1,
+        "width": "6",
+        "height": "6",
+        "format": "<style>\n.ftw{width:100%;overflow-x:auto}\n.ft{width:100%;border-collapse:collapse;font-family:inherit;color:inherit;table-layout:fixed}\n.ft th{text-align:left;padding:4px 3px;font-size:11px;opacity:.6;border-bottom:1px solid rgba(128,128,128,.4);white-space:nowrap}\n.ft td{padding:8px 3px;font-size:13px;border-bottom:1px solid rgba(128,128,128,.18);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}\n.pill{display:inline-block;padding:2px 8px;border-radius:11px;font-size:10px;color:#fff}\n.bar{height:8px;border-radius:4px;background:rgba(128,128,128,.28);overflow:hidden}\n.fill{height:8px;border-radius:4px;transition:width .5s}\n.cd{font-weight:600;font-variant-numeric:tabular-nums}\n.empty{opacity:.5;padding:14px 4px;font-size:13px}\n</style>\n\n<div class=\"ftw\">\n<table class=\"ft\">\n  <colgroup>\n    <col style=\"width:17%\"><col style=\"width:20%\"><col style=\"width:19%\">\n    <col style=\"width:14%\"><col style=\"width:14%\"><col style=\"width:16%\">\n  </colgroup>\n  <tr>\n    <th>Bus</th><th>Status</th><th>Stop</th><th>Time</th><th>Free</th><th>Load</th>\n  </tr>\n  <tr ng-repeat=\"b in msg.payload\">\n    <td><b>{{b.bus_id}}</b></td>\n    <td><span class=\"pill\" ng-style=\"{'background':b.color}\">{{b.status}}</span></td>\n    <td>Station {{b.station}}</td>\n    <td class=\"cd\">{{b.count}}s</td>\n    <td>{{b.available}}/{{b.total}}</td>\n    <td>\n      <div class=\"bar\">\n        <div class=\"fill\" ng-style=\"{'width':b.percent+'%','background':b.loadColor}\"></div>\n      </div>\n    </td>\n  </tr>\n</table>\n</div>\n\n<div class=\"empty\" ng-if=\"!msg.payload || msg.payload.length==0\">Waiting for buses to publish...</div>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 620,
+        "y": 300,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "341bbd5bb709447d",
+        "type": "ui_template",
+        "z": "738edf5cf71ab6b3",
+        "group": "5e03142bdd114205",
+        "name": "station boards",
+        "order": 1,
+        "width": "6",
+        "height": "6",
+        "format": "<style>\n.sw{display:flex;flex-direction:column;gap:8px}\n.sc{border:1px solid rgba(128,128,128,.3);border-radius:7px;padding:8px 10px}\n.sh{font-size:10px;opacity:.55;letter-spacing:1.2px;margin-bottom:4px}\n.row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}\n.arr{color:#2e9e4f;font-weight:700;font-size:14px}\n.non{opacity:.5;font-size:13px}\n.sub{font-size:12px;opacity:.85;font-variant-numeric:tabular-nums}\n.nx{font-size:12px;margin-top:5px;padding-top:5px;border-top:1px solid rgba(128,128,128,.22);opacity:.9}\n</style>\n\n<div class=\"sw\">\n  <div class=\"sc\" ng-repeat=\"s in msg.payload\">\n    <div class=\"sh\">STATION {{s.station}}</div>\n\n    <div class=\"row\" ng-if=\"s.at\">\n      <span class=\"arr\">{{s.at.bus_id}} ARRIVED</span>\n      <span class=\"sub\">departs in {{s.at.count}}s</span>\n    </div>\n    <div class=\"sub\" ng-if=\"s.at\">{{s.at.available}} of {{s.at.total}} seats free</div>\n\n    <div class=\"non\" ng-if=\"!s.at\">No bus at stop</div>\n\n    <div class=\"nx\" ng-if=\"s.next\">Next: <b>{{s.next.bus_id}}</b> in {{s.next.count}}s</div>\n    <div class=\"nx\" ng-if=\"!s.next\">No bus incoming</div>\n  </div>\n</div>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 630,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "3f8b0bfd47f618a4",
+        "type": "ui_template",
+        "z": "738edf5cf71ab6b3",
+        "group": "fbd160774afd6160",
+        "name": "bus 1 card",
+        "order": 1,
+        "width": "4",
+        "height": "7",
+        "format": "<style>\n.bc{font-variant-numeric:tabular-nums}\n.bc .top{display:flex;justify-content:space-between;align-items:center}\n.bc .id{font-size:19px;font-weight:700}\n.bc .st{padding:3px 9px;border-radius:11px;color:#fff;font-size:10px}\n.bc .lbl{font-size:10px;opacity:.55;letter-spacing:1.2px;margin-top:10px}\n.bc .big{font-size:30px;font-weight:700;line-height:1.1}\n.bc .r{display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px solid rgba(128,128,128,.18)}\n.dialwrap{display:flex;align-items:center;gap:12px;margin-top:12px}\n.dial{width:74px;height:74px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center}\n.dial .hole{width:56px;height:56px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700}\n.dlbl{font-size:11px;opacity:.6;line-height:1.5}\n</style>\n\n<div class=\"bc\" ng-if=\"msg.payload\">\n  <div class=\"top\">\n    <span class=\"id\">{{msg.payload.bus_id}}</span>\n    <span class=\"st\" ng-style=\"{'background':msg.payload.color}\">{{msg.payload.status}}</span>\n  </div>\n\n  <div class=\"lbl\">{{msg.payload.label}}</div>\n  <div class=\"big\">{{msg.payload.count}}s</div>\n\n  <div class=\"r\" style=\"margin-top:8px\"><span>Next stop</span><b>Station {{msg.payload.station}}</b></div>\n  <div class=\"r\"><span>Free seats</span><b>{{msg.payload.available}} / {{msg.payload.total}}</b></div>\n  <div class=\"r\"><span>Occupied</span><b>{{msg.payload.occupied}}</b></div>\n\n  <div class=\"dialwrap\">\n    <div class=\"dial\" ng-style=\"{'background':'conic-gradient('+msg.payload.loadColor+' 0% '+msg.payload.percent+'%, rgba(128,128,128,.22) '+msg.payload.percent+'% 100%)'}\">\n      <div class=\"hole\">{{msg.payload.percent}}%</div>\n    </div>\n    <div class=\"dlbl\">Occupancy<br>{{msg.payload.occupied}} of {{msg.payload.total}} seats</div>\n  </div>\n</div>\n\n<div ng-if=\"!msg.payload\" style=\"opacity:.5;font-size:13px\">No data yet</div>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 620,
+        "y": 380,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "349d0365764d3a7d",
+        "type": "ui_template",
+        "z": "738edf5cf71ab6b3",
+        "group": "821022b6ace53ed3",
+        "name": "bus 2 card",
+        "order": 1,
+        "width": "4",
+        "height": "7",
+        "format": "<style>\n.bc{font-variant-numeric:tabular-nums}\n.bc .top{display:flex;justify-content:space-between;align-items:center}\n.bc .id{font-size:19px;font-weight:700}\n.bc .st{padding:3px 9px;border-radius:11px;color:#fff;font-size:10px}\n.bc .lbl{font-size:10px;opacity:.55;letter-spacing:1.2px;margin-top:10px}\n.bc .big{font-size:30px;font-weight:700;line-height:1.1}\n.bc .r{display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px solid rgba(128,128,128,.18)}\n.dialwrap{display:flex;align-items:center;gap:12px;margin-top:12px}\n.dial{width:74px;height:74px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center}\n.dial .hole{width:56px;height:56px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700}\n.dlbl{font-size:11px;opacity:.6;line-height:1.5}\n</style>\n\n<div class=\"bc\" ng-if=\"msg.payload\">\n  <div class=\"top\">\n    <span class=\"id\">{{msg.payload.bus_id}}</span>\n    <span class=\"st\" ng-style=\"{'background':msg.payload.color}\">{{msg.payload.status}}</span>\n  </div>\n\n  <div class=\"lbl\">{{msg.payload.label}}</div>\n  <div class=\"big\">{{msg.payload.count}}s</div>\n\n  <div class=\"r\" style=\"margin-top:8px\"><span>Next stop</span><b>Station {{msg.payload.station}}</b></div>\n  <div class=\"r\"><span>Free seats</span><b>{{msg.payload.available}} / {{msg.payload.total}}</b></div>\n  <div class=\"r\"><span>Occupied</span><b>{{msg.payload.occupied}}</b></div>\n\n  <div class=\"dialwrap\">\n    <div class=\"dial\" ng-style=\"{'background':'conic-gradient('+msg.payload.loadColor+' 0% '+msg.payload.percent+'%, rgba(128,128,128,.22) '+msg.payload.percent+'% 100%)'}\">\n      <div class=\"hole\">{{msg.payload.percent}}%</div>\n    </div>\n    <div class=\"dlbl\">Occupancy<br>{{msg.payload.occupied}} of {{msg.payload.total}} seats</div>\n  </div>\n</div>\n\n<div ng-if=\"!msg.payload\" style=\"opacity:.5;font-size:13px\">No data yet</div>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 620,
+        "y": 420,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "9a77c2f88cdc68b9",
+        "type": "ui_template",
+        "z": "738edf5cf71ab6b3",
+        "group": "b35aa0266e7dabef",
+        "name": "bus 3 card",
+        "order": 1,
+        "width": "4",
+        "height": "7",
+        "format": "<style>\n.bc{font-variant-numeric:tabular-nums}\n.bc .top{display:flex;justify-content:space-between;align-items:center}\n.bc .id{font-size:19px;font-weight:700}\n.bc .st{padding:3px 9px;border-radius:11px;color:#fff;font-size:10px}\n.bc .lbl{font-size:10px;opacity:.55;letter-spacing:1.2px;margin-top:10px}\n.bc .big{font-size:30px;font-weight:700;line-height:1.1}\n.bc .r{display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px solid rgba(128,128,128,.18)}\n.dialwrap{display:flex;align-items:center;gap:12px;margin-top:12px}\n.dial{width:74px;height:74px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center}\n.dial .hole{width:56px;height:56px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700}\n.dlbl{font-size:11px;opacity:.6;line-height:1.5}\n</style>\n\n<div class=\"bc\" ng-if=\"msg.payload\">\n  <div class=\"top\">\n    <span class=\"id\">{{msg.payload.bus_id}}</span>\n    <span class=\"st\" ng-style=\"{'background':msg.payload.color}\">{{msg.payload.status}}</span>\n  </div>\n\n  <div class=\"lbl\">{{msg.payload.label}}</div>\n  <div class=\"big\">{{msg.payload.count}}s</div>\n\n  <div class=\"r\" style=\"margin-top:8px\"><span>Next stop</span><b>Station {{msg.payload.station}}</b></div>\n  <div class=\"r\"><span>Free seats</span><b>{{msg.payload.available}} / {{msg.payload.total}}</b></div>\n  <div class=\"r\"><span>Occupied</span><b>{{msg.payload.occupied}}</b></div>\n\n  <div class=\"dialwrap\">\n    <div class=\"dial\" ng-style=\"{'background':'conic-gradient('+msg.payload.loadColor+' 0% '+msg.payload.percent+'%, rgba(128,128,128,.22) '+msg.payload.percent+'% 100%)'}\">\n      <div class=\"hole\">{{msg.payload.percent}}%</div>\n    </div>\n    <div class=\"dlbl\">Occupancy<br>{{msg.payload.occupied}} of {{msg.payload.total}} seats</div>\n  </div>\n</div>\n\n<div ng-if=\"!msg.payload\" style=\"opacity:.5;font-size:13px\">No data yet</div>",
+        "storeOutMessages": true,
+        "fwdInMessages": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 620,
+        "y": 460,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "662a4c9845eb6ab7",
+        "type": "ui_chart",
+        "z": "738edf5cf71ab6b3",
+        "name": "occupancy over time",
+        "group": "2a19a48fcc9c7261",
+        "order": 1,
+        "width": "12",
+        "height": "5",
+        "label": "Occupancy % over time",
+        "chartType": "line",
+        "legend": "true",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "waiting for bus data",
+        "dot": false,
+        "ymin": "0",
+        "ymax": "100",
+        "removeOlder": "10",
+        "removeOlderPoints": "",
+        "removeOlderUnit": "60",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#2a6ebb",
+            "#e6a700",
+            "#2e9e4f",
+            "#ca3838",
+            "#9467bd",
+            "#8c564b",
+            "#e377c2",
+            "#7f7f7f",
+            "#bcbd22"
+        ],
+        "outputs": 1,
+        "useDifferentColor": false,
+        "className": "",
+        "x": 790,
+        "y": 220,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "hivemq_broker",
+        "type": "mqtt-broker",
+        "name": "HiveMQ Public",
+        "broker": "broker.hivemq.com",
+        "port": "1883",
+        "clientid": "nodered_smartbus",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "closeTopic": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": ""
+    },
+    {
+        "id": "40b1f3b75b2c0820",
+        "type": "ui_group",
+        "name": "Fleet Overview",
+        "tab": "ui_tab_1",
+        "order": 1,
+        "disp": true,
+        "width": "6",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "5e03142bdd114205",
+        "type": "ui_group",
+        "name": "Station Boards",
+        "tab": "ui_tab_1",
+        "order": 2,
+        "disp": true,
+        "width": "6",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "fbd160774afd6160",
+        "type": "ui_group",
+        "name": "Bus 1",
+        "tab": "ui_tab_1",
+        "order": 3,
+        "disp": true,
+        "width": "4",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "821022b6ace53ed3",
+        "type": "ui_group",
+        "name": "Bus 2",
+        "tab": "ui_tab_1",
+        "order": 4,
+        "disp": true,
+        "width": "4",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "b35aa0266e7dabef",
+        "type": "ui_group",
+        "name": "Bus 3",
+        "tab": "ui_tab_1",
+        "order": 5,
+        "disp": true,
+        "width": "4",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "2a19a48fcc9c7261",
+        "type": "ui_group",
+        "name": "Occupancy History",
+        "tab": "ui_tab_1",
+        "order": 6,
+        "disp": true,
+        "width": "12",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "ui_tab_1",
+        "type": "ui_tab",
+        "name": "Smart Bus",
+        "icon": "directions_bus",
+        "order": 1,
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "f563c3b9398883f9",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-dashboard": "3.6.6"
+        }
+    }
+]
