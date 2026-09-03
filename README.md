@@ -36,6 +36,10 @@ smart-bus-monitoring-system/
 3. For buses, only `BUS_NUM` changes (1, 2, or 3). For stations, only `STATION_ID` changes (1, 2, or 3).
 4. Run the simulation — buses and stations will connect to Wi-Fi and MQTT automatically.
 
+## Project Demo
+
+[View Project Demo on Google Drive](https://drive.google.com/file/d/1GUh8mPDBuYVtVQvbYrPaT2XAC3OKnns1/view?usp=drivesdk)
+
 ## Future work
 
 - Integrate the dashboard into a mobile app with separate Admin and User views
