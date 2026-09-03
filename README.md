@@ -36,6 +36,15 @@ smart-bus-monitoring-system/
 3. For buses, only `BUS_NUM` changes (1, 2, or 3). For stations, only `STATION_ID` changes (1, 2, or 3).
 4. Run the simulation — buses and stations will connect to Wi-Fi and MQTT automatically.
 
+## Try it live
+- Bus_1 simulation: [https://wokwi.com/projects/474009842889865217]
+- Bus_2 simulation: [https://wokwi.com/projects/474009796193610753]
+- Bus_3 simulation: [https://wokwi.com/projects/474009778339494913]
+- Station_1 simulation: [https://wokwi.com/projects/474009833041635329]
+- Station_2 simulation: [https://wokwi.com/projects/474009808583588865]
+- Station_3 simulation: [https://wokwi.com/projects/474009820138902529]
+
+
 ## Project Demo
 
 [View Project Demo on Google Drive](https://drive.google.com/file/d/1GUh8mPDBuYVtVQvbYrPaT2XAC3OKnns1/view?usp=drivesdk)
