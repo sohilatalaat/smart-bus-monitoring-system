@@ -29,16 +29,6 @@ smart-bus-monitoring-system/
 2. Each station subscribes to all bus topics, filters for buses relevant to its own station, and updates its two OLED screens (arrival board + occupancy).
 3. The dashboard subscribes to all bus data as well, showing a fleet-wide overview for administrators.
 
-## Running the dashboard
-
-The dashboard was built with **Node-RED**, using the **node-red-dashboard** package for the UI (cards, gauges, and charts).
-
-To run it:
-1. Install [Node-RED](https://nodered.org/docs/getting-started/local).
-2. Install the `node-red-dashboard` package from the Node-RED palette manager (Menu → Manage palette → Install → search `node-red-dashboard`).
-3. Import the flow file from `dashboard/smart_bus_dashboard_flow.json` (Menu → Import → select the file).
-4. Deploy the flow and open the dashboard URL shown by Node-RED.
-
 ## Running the simulation
 
 1. Open [Wokwi](https://wokwi.com) and create a new ESP32 project for each bus / station.
