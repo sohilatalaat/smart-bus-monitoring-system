@@ -54,9 +54,9 @@ To run it:
 
 ## Team
 
-- [ِAbdullah Nagy Abdullah
-Loai Ahmed Ali
-Marawan Ahmed Mohamed
-Rana Hany Hegazy
+- [ِAbdullah Nagy Abdullah -
+Loai Ahmed Ali -
+Marawan Ahmed Mohamed -
+Rana Hany Hegazy -
 Sohila Talaat Mohamed
 ]
