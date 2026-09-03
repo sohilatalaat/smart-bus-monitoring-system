@@ -1,0 +1,62 @@
+# Smart Bus Monitoring System
+
+A real-time IoT-based system for tracking buses and stations, built as a course project simulated on [Wokwi](https://wokwi.com).
+
+## Overview
+
+Passengers often don't know when the next bus will arrive or whether it will have free seats. Station and city management also lack a unified, real-time view of the entire bus fleet.
+
+This project solves that by connecting three main components over MQTT:
+
+- **Buses** – simulate 3 buses (ESP32 + MicroPython) that move automatically between 3 stations on a timed schedule, track free/occupied seats, and publish live status data.
+- **Stations** – simulate 3 stations (ESP32 + two OLED screens) that subscribe to the bus data and display an arrival board and occupancy details for passengers.
+- **Dashboard** – a Node-RED dashboard giving administrators a full, real-time overview of the whole fleet (fleet status, station boards, per-bus occupancy, and occupancy history over time).
+
+## Project structure
+
+```
+smart-bus-monitoring-system/
+├── buses/          # MicroPython code for Bus 1, Bus 2, Bus 3 (ESP32)
+├── station/         # MicroPython code for Station 1, Station 2, Station 3 (ESP32)
+├── dashboard/        # Node-RED flow (exported as JSON) for the admin dashboard
+├── images/          # Screenshots of the dashboard, Wokwi simulation, and wiring
+└── README.md
+```
+
+## How it works
+
+1. Each bus publishes its status (station, ETA, free/occupied seats) as a JSON message over MQTT (`broker.hivemq.com`), on its own topic (`smartbus/busN/data`).
+2. Each station subscribes to all bus topics, filters for buses relevant to its own station, and updates its two OLED screens (arrival board + occupancy).
+3. The dashboard subscribes to all bus data as well, showing a fleet-wide overview for administrators.
+
+## Running the dashboard
+
+The dashboard was built with **Node-RED**, using the **node-red-dashboard** package for the UI (cards, gauges, and charts).
+
+To run it:
+1. Install [Node-RED](https://nodered.org/docs/getting-started/local).
+2. Install the `node-red-dashboard` package from the Node-RED palette manager (Menu → Manage palette → Install → search `node-red-dashboard`).
+3. Import the flow file from `dashboard/smart_bus_dashboard_flow.json` (Menu → Import → select the file).
+4. Deploy the flow and open the dashboard URL shown by Node-RED.
+
+## Running the simulation
+
+1. Open [Wokwi](https://wokwi.com) and create a new ESP32 project for each bus / station.
+2. Copy the corresponding code from `buses/` or `station/` into `main.py`.
+3. For buses, only `BUS_NUM` changes (1, 2, or 3). For stations, only `STATION_ID` changes (1, 2, or 3).
+4. Run the simulation — buses and stations will connect to Wi-Fi and MQTT automatically.
+
+## Future work
+
+- Integrate the dashboard into a mobile app with separate Admin and User views
+- Use real GPS tracking instead of simulated movement
+- Add push notifications for bus arrivals
+
+## Team
+
+- [ِAbdullah Nagy Abdullah
+Loai Ahmed Ali
+Marawan Ahmed Mohamed
+Rana Hany Hegazy
+Sohila Talaat Mohamed
+]
